@@ -13,6 +13,13 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from main import LinkedInAutomator, PROMPT_STYLES
+from core.scrapers import (
+    scrape_github_trending,
+    scrape_github_javascript_trends,
+    scrape_github_nodejs_trends,
+    scrape_hacker_news,
+    scrape_tech_news,
+)
 import json
 from datetime import datetime
 
@@ -188,6 +195,14 @@ def display_sidebar():
             else:
                 st.error("❌ Başlık ve URL gereklidir!")
     
+    # Long form toggle
+    long_form_choice = st.sidebar.checkbox(
+        "📝 Daha uzun içerik (4–5 cümle)",
+        value=getattr(st.session_state.automator, "long_form", False),
+        help="Tiklersen içerik 4–5 cümle olur; tik yoksa 2–3 cümle yazılır."
+    )
+    st.session_state.automator.long_form = long_form_choice
+
     # Trend fetching
     st.sidebar.subheader("1️⃣ Otomatik Trend Bulma")
     if st.sidebar.button("🔍 Trend Ara", key="fetch_trends", use_container_width=True):
@@ -195,28 +210,28 @@ def display_sidebar():
             all_trends = []
             
             # Python trends
-            python_trends = st.session_state.automator.scrape_github_trending()
+            python_trends = scrape_github_trending()
             if python_trends:
                 for trend in python_trends:
                     trend["source"] = "🐍 Python"
                 all_trends.extend(python_trends)
             
             # JavaScript trends
-            js_trends = st.session_state.automator.scrape_github_javascript_trends()
+            js_trends = scrape_github_javascript_trends()
             if js_trends:
                 for trend in js_trends:
                     trend["source"] = "🟨 JavaScript"
                 all_trends.extend(js_trends)
             
             # Node.js trends
-            nodejs_trends = st.session_state.automator.scrape_github_nodejs_trends()
+            nodejs_trends = scrape_github_nodejs_trends()
             if nodejs_trends:
                 for trend in nodejs_trends:
                     trend["source"] = "💚 Node.js"
                 all_trends.extend(nodejs_trends[:3])
             
             # Tech news
-            tech_news = st.session_state.automator.scrape_tech_news()
+            tech_news = scrape_tech_news()
             if tech_news:
                 for trend in tech_news:
                     trend["source"] = "📰 Dev.to"
