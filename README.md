@@ -1,4 +1,4 @@
-# 🚀 LinkedIn İçerik Otomasyonu
+# 🚀 LinkedIn İçerik Otomasyonu (Tamamen Vibe Coding ile oluşturuldu)
 
 Günlük LinkedIn içeriklerinizi otomatikleştiren bir Python CLI aracı. Trend teknoloji konularını bulur, DeepSeek AI ile **Türkçe** içerik oluşturur ve sizin manuel olarak LinkedIn'e eklemeniz için hazırlar.
 
