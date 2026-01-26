@@ -1,4 +1,11 @@
 .env
 history.json
 linkedin_post.txt
+custom_trends.json
 __pycache__
+*.pyc
+.venv/
+venv/
+.streamlit/
+.vscode/
+.DS_Store
