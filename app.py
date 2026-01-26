@@ -14,6 +14,25 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from main import LinkedInAutomator, PROMPT_STYLES
 import json
+from datetime import datetime
+
+# Custom trends file path
+CUSTOM_TRENDS_FILE = "custom_trends.json"
+
+def load_custom_trends():
+    """Load custom trends from file."""
+    if os.path.exists(CUSTOM_TRENDS_FILE):
+        try:
+            with open(CUSTOM_TRENDS_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except:
+            return []
+    return []
+
+def save_custom_trends(trends):
+    """Save custom trends to file."""
+    with open(CUSTOM_TRENDS_FILE, 'w', encoding='utf-8') as f:
+        json.dump(trends, f, ensure_ascii=False, indent=2)
 
 # Page configuration
 st.set_page_config(
@@ -87,6 +106,12 @@ def initialize_session_state():
     
     if "current_trend_index" not in st.session_state:
         st.session_state.current_trend_index = 0
+    
+    if "custom_trends" not in st.session_state:
+        st.session_state.custom_trends = load_custom_trends()
+    
+    if "show_post_detail" not in st.session_state:
+        st.session_state.show_post_detail = None
 
 
 def display_header():
@@ -121,35 +146,109 @@ def display_sidebar():
     """Display sidebar with options."""
     st.sidebar.title("⚙️ Kontrol Paneli")
     
+    # Manual trend addition
+    st.sidebar.subheader("➕ Manuel Trend Ekle")
+    with st.sidebar.expander("🔗 Yeni Trend Girin", expanded=False):
+        col1, col2 = st.columns(2)
+        with col1:
+            manual_title = st.text_input(
+                "Başlık",
+                placeholder="örn: DeepSeek v2",
+                key="manual_title"
+            )
+        with col2:
+            manual_url = st.text_input(
+                "URL",
+                placeholder="https://github.com/...",
+                key="manual_url"
+            )
+        
+        manual_desc = st.text_area(
+            "Açıklama",
+            placeholder="Trend hakkında kısa açıklama",
+            height=100,
+            key="manual_desc"
+        )
+        
+        if st.button("✅ Trend Ekle", use_container_width=True):
+            if manual_title and manual_url:
+                new_trend = {
+                    "title": manual_title,
+                    "url": manual_url,
+                    "description": manual_desc or "Manuel olarak eklenen trend",
+                    "source": "🔗 Manual",
+                    "added_date": datetime.now().isoformat()
+                }
+                st.session_state.custom_trends.append(new_trend)
+                save_custom_trends(st.session_state.custom_trends)
+                # Add to main trends list
+                st.session_state.trends.append(new_trend)
+                st.success(f"✅ '{manual_title}' eklendi!")
+                st.rerun()
+            else:
+                st.error("❌ Başlık ve URL gereklidir!")
+    
     # Trend fetching
-    st.sidebar.subheader("1️⃣ Trend Bulma")
+    st.sidebar.subheader("1️⃣ Otomatik Trend Bulma")
     if st.sidebar.button("🔍 Trend Ara", key="fetch_trends", use_container_width=True):
         with st.spinner("Trend'ler aranıyor..."):
             trends = st.session_state.automator.scrape_github_trending()
             if trends:
-                st.session_state.trends = trends
+                # Add source indicator
+                for trend in trends:
+                    trend["source"] = "📱 GitHub"
+                # Merge with custom trends
+                st.session_state.trends = st.session_state.custom_trends + trends
                 st.session_state.current_trend_index = 0
                 st.success(f"✅ {len(trends)} trend bulundu!")
             else:
                 st.error("❌ Trend bulunamadı")
     
-    # Content generation
+    # Trends list
     if st.session_state.trends:
-        st.sidebar.subheader("2️⃣ İçerik Oluştur")
+        st.sidebar.subheader("2️⃣ Konuları Seç")
         
-        # Find next unprocessed trend
+        # Find next unprocessed trend as default
         for idx, trend in enumerate(st.session_state.trends):
             if not st.session_state.automator._is_already_posted(trend["url"]):
                 st.session_state.current_trend_index = idx
                 break
         
+        # Create trend labels with source indicators
+        trend_labels = []
+        for t in st.session_state.trends:
+            source = t.get("source", "")
+            title = t["title"][:35]
+            is_done = "✓" if st.session_state.automator._is_already_posted(t["url"]) else "○"
+            label = f"{is_done} {source} {title}"
+            trend_labels.append(label)
+        
+        # Selectbox for all trends
+        selected_idx = st.sidebar.selectbox(
+            "Konu seçin:",
+            range(len(st.session_state.trends)),
+            index=st.session_state.current_trend_index,
+            format_func=lambda i: trend_labels[i],
+            key="trend_selector"
+        )
+        
+        # Update current trend index
+        st.session_state.current_trend_index = selected_idx
         current_trend = st.session_state.trends[st.session_state.current_trend_index]
-        st.sidebar.info(f"📌 **{current_trend['title']}**")
+        
+        # Display selected trend details
+        source = current_trend.get("source", "")
+        st.sidebar.info(
+            f"{source}\n**{current_trend['title']}**\n"
+            f"[🔗 Link]({current_trend['url']})"
+        )
         
         if st.sidebar.button("🤖 İçerik Oluştur", use_container_width=True):
             with st.spinner("AI içerik oluşturuyor..."):
                 try:
-                    content, style = st.session_state.automator.generate_post_content(current_trend)
+                    # Get the currently selected trend
+                    selected_trend = st.session_state.trends[st.session_state.current_trend_index]
+                    content, style = st.session_state.automator.generate_post_content(selected_trend)
                     st.session_state.current_content = content
                     st.session_state.current_style = style
                     st.success("✅ İçerik oluşturuldu!")
@@ -164,19 +263,45 @@ def display_sidebar():
         automator = st.session_state.automator
         posts = automator.history.get("posts", [])
         if posts:
-            for i, post in enumerate(reversed(posts[-5:]), 1):  # Show last 5
-                st.caption(f"**{i}. {post['url'].split('/')[-1]}**")
-                st.caption(f"📅 {post['timestamp'][:10]}")
+            st.caption(f"_Toplam: {len(posts)} yazı_")
+            for i, post in enumerate(reversed(posts[-10:]), 1):  # Show last 10
+                col1, col2 = st.columns([3, 1])
+                with col1:
+                    st.caption(f"**{post['url'].split('/')[-1]}**")
+                    st.caption(f"📅 {post['timestamp'][:10]}")
+                with col2:
+                    if st.button("👁️", key=f"view_post_{i}", help="Yazıyı görüntüle"):
+                        st.session_state.show_post_detail = post
+                        st.rerun()
         else:
             st.info("Henüz yayınlanan içerik yok")
     
     with st.sidebar.expander("🚫 Atlanan Konular"):
         dismissed = automator.history.get("dismissed", [])
         if dismissed:
-            for url in dismissed[-5:]:  # Show last 5
+            st.caption(f"_Toplam: {len(dismissed)} konu_")
+            for url in dismissed[-10:]:  # Show last 10
                 st.caption(f"🔗 {url.split('/')[-1]}")
         else:
             st.info("Henüz atlanan konu yok")
+    
+    # Custom trends management
+    if st.session_state.custom_trends:
+        st.sidebar.divider()
+        st.sidebar.subheader("🔗 Manuel Trendler")
+        
+        for idx, trend in enumerate(st.session_state.custom_trends):
+            col1, col2 = st.sidebar.columns([3, 1])
+            with col1:
+                st.caption(f"📌 {trend['title'][:25]}...")
+            with col2:
+                if st.button("🗑️", key=f"remove_trend_{idx}", help="Sil"):
+                    st.session_state.custom_trends.pop(idx)
+                    save_custom_trends(st.session_state.custom_trends)
+                    # Remove from trends list too
+                    st.session_state.trends = [t for t in st.session_state.trends if t.get('url') != trend['url']]
+                    st.success("✅ Trend silindi!")
+                    st.rerun()
 
 
 def display_content_preview():
@@ -269,6 +394,53 @@ def display_style_selector():
                     st.error(f"Hata: {e}")
 
 
+def display_post_detail():
+    """Display detailed view of a saved post."""
+    if not st.session_state.show_post_detail:
+        return
+    
+    post = st.session_state.show_post_detail
+    
+    st.subheader("📖 Yazı Detayı")
+    
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("📅 Tarih", post.get('timestamp', 'N/A')[:10])
+    with col2:
+        st.metric("🔗 Konu", post.get('url', 'N/A').split('/')[-1][:20])
+    with col3:
+        st.metric("📝 Karakter", len(post.get('content', '')))
+    
+    st.divider()
+    
+    # Content
+    st.markdown("**📄 İçerik:**")
+    st.markdown("""
+    <div class="preview-box">
+    """, unsafe_allow_html=True)
+    st.write(post.get('content', 'İçerik bulunamadı'))
+    st.markdown("</div>", unsafe_allow_html=True)
+    
+    # Actions
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        if st.button("📋 Panoya Kopyala", use_container_width=True):
+            import pyperclip
+            pyperclip.copy(post.get('content', ''))
+            st.success("✅ Panoya kopyalandı!")
+    
+    with col2:
+        if st.button("💾 Dosyaya Kaydet", use_container_width=True):
+            with open(f"post_{post.get('timestamp', 'unknown')[:10]}.txt", 'w', encoding='utf-8') as f:
+                f.write(post.get('content', ''))
+            st.success("✅ Dosyaya kaydedildi!")
+    
+    with col3:
+        if st.button("❌ Kapat", use_container_width=True):
+            st.session_state.show_post_detail = None
+            st.rerun()
+
+
 def display_manual_edit():
     """Display manual edit section."""
     st.subheader("✏️ Manuel Düzenleme")
@@ -296,6 +468,13 @@ def display_manual_edit():
 def main():
     """Main application."""
     initialize_session_state()
+    
+    # Check if showing post detail
+    if st.session_state.show_post_detail:
+        # Header
+        display_header()
+        display_post_detail()
+        return
     
     # Header
     display_header()
