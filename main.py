@@ -33,7 +33,7 @@ PROMPT_STYLES = {
         "description": "Konuyu bir hikaye gibi, ilişkili bir senaryoyla anlat",
         "system": """Sen bir teknoloji yazarısın. Kısa bir hikaye veya senaryo şeklinde, trend teknoloji konusunu LinkedIn'e anlat.
 TAMAMEN TÜRKÇE yaz ve 3–4 cümleyi geçme.
-Bir hayal­î durumdan başla (örn. 'Hayal et ki...' veya 'Birkaç sene sonra...').
+Konuyu senaryo oluşturarak basitleştirmeni istiyorum.
 Konuyu insani ve relatable bir şekilde bağlantılandır.
 Emoji: en fazla 1–2, gerekirse hiç.
 Linki en sona tek başına bir satırda ekle.
@@ -301,6 +301,145 @@ class LinkedInAutomator:
             self.console.print(f"[red]Hacker News scraping hatası: {e}[/red]")
             return []
     
+    def scrape_github_javascript_trends(self) -> List[Dict[str, str]]:
+        """
+        Scrape GitHub trending JavaScript repositories.
+        """
+        try:
+            self.console.print("[cyan]🔍 GitHub'da JavaScript trend konuları aranıyor...[/cyan]")
+            url = "https://github.com/trending/javascript?since=daily"
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+            }
+            
+            response = requests.get(url, headers=headers, timeout=10)
+            response.raise_for_status()
+            soup = BeautifulSoup(response.content, 'html.parser')
+            
+            articles = soup.find_all('article', class_='Box-row')
+            trends = []
+            
+            for article in articles[:5]:  # Get top 5
+                try:
+                    h2 = article.find('h2', class_='h3')
+                    if h2:
+                        link = h2.find('a')
+                        if link:
+                            repo_url = "https://github.com" + link.get('href', '')
+                            title = link.get_text(strip=True).replace('\n', ' ').strip()
+                            
+                            desc_elem = article.find('p', class_='col-9')
+                            description = desc_elem.get_text(strip=True) if desc_elem else "No description"
+                            
+                            trends.append({
+                                "title": title,
+                                "description": description,
+                                "url": repo_url,
+                                "type": "JavaScript"
+                            })
+                except Exception as e:
+                    self.console.print(f"[yellow]Warning: Could not parse a trend item: {e}[/yellow]")
+                    continue
+            
+            if trends:
+                self.console.print(f"[green]✓ {len(trends)} JavaScript trend repository bulundu[/green]")
+                return trends
+            else:
+                return []
+                
+        except Exception as e:
+            self.console.print(f"[red]GitHub JavaScript scraping hatası: {e}[/red]")
+            return []
+    
+    def scrape_github_nodejs_trends(self) -> List[Dict[str, str]]:
+        """
+        Scrape GitHub trending Node.js related repositories.
+        """
+        try:
+            self.console.print("[cyan]🔍 GitHub'da Node.js trend konuları aranıyor...[/cyan]")
+            url = "https://github.com/trending?spoken_language_code=&since=daily"
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+            }
+            
+            response = requests.get(url, headers=headers, timeout=10)
+            response.raise_for_status()
+            soup = BeautifulSoup(response.content, 'html.parser')
+            
+            articles = soup.find_all('article', class_='Box-row')
+            trends = []
+            
+            for article in articles[:5]:  # Get top 5
+                try:
+                    h2 = article.find('h2', class_='h3')
+                    if h2:
+                        link = h2.find('a')
+                        if link:
+                            repo_url = "https://github.com" + link.get('href', '')
+                            title = link.get_text(strip=True).replace('\n', ' ').strip()
+                            
+                            desc_elem = article.find('p', class_='col-9')
+                            description = desc_elem.get_text(strip=True) if desc_elem else "No description"
+                            
+                            trends.append({
+                                "title": title,
+                                "description": description,
+                                "url": repo_url,
+                                "type": "General"
+                            })
+                except Exception as e:
+                    self.console.print(f"[yellow]Warning: Could not parse a trend item: {e}[/yellow]")
+                    continue
+            
+            if trends:
+                self.console.print(f"[green]✓ {len(trends)} Node.js trend repository bulundu[/green]")
+                return trends
+            else:
+                return []
+                
+        except Exception as e:
+            self.console.print(f"[red]GitHub Node.js scraping hatası: {e}[/red]")
+            return []
+    
+    def scrape_tech_news(self) -> List[Dict[str, str]]:
+        """
+        Scrape tech news from Dev.to API (no scraping needed, API available).
+        """
+        try:
+            self.console.print("[cyan]🔍 Dev.to'dan teknoloji haberleri çekiliyor...[/cyan]")
+            url = "https://dev.to/api/articles?top=7&per_page=5"
+            headers = {
+                "User-Agent": "Mozilla/5.0"
+            }
+            
+            response = requests.get(url, headers=headers, timeout=10)
+            response.raise_for_status()
+            
+            articles = response.json()
+            trends = []
+            
+            for article in articles:
+                try:
+                    trends.append({
+                        "title": article.get('title', 'Untitled'),
+                        "description": article.get('description', 'No description')[:200],
+                        "url": article.get('url', ''),
+                        "type": "Dev.to"
+                    })
+                except Exception as e:
+                    self.console.print(f"[yellow]Warning: Could not parse article: {e}[/yellow]")
+                    continue
+            
+            if trends:
+                self.console.print(f"[green]✓ Dev.to'da {len(trends)} teknoloji haberi bulundu[/green]")
+                return trends
+            else:
+                return []
+                
+        except Exception as e:
+            self.console.print(f"[red]Dev.to scraping hatası: {e}[/red]")
+            return []
+    
     def generate_post_content(self, trend: Dict[str, str], style_key: Optional[str] = None) -> Tuple[str, str]:
         """
         Generate LinkedIn post content using DeepSeek AI.
@@ -477,15 +616,55 @@ Stil rehberini ve yukarıdaki talimatları uygula."""
         ))
         self.console.print("\n")
         
-        # Step 1: Get trending topics
-        trends = self.scrape_github_trending()
+        # Step 1: Get trending topics from multiple sources
+        self.console.print("[bold cyan]📡 Birden fazla kaynaktan trend konuları alınıyor...[/bold cyan]\n")
         
-        if not trends:
-            self.console.print("[red]❌ Trend konu bulunamadı. Lütfen daha sonra tekrar deneyin.[/red]")
+        all_trends = []
+        
+        # Python trends (main source)
+        python_trends = self.scrape_github_trending()
+        if python_trends:
+            for trend in python_trends:
+                trend["source"] = "🐍 Python"
+            all_trends.extend(python_trends)
+        
+        # JavaScript trends
+        js_trends = self.scrape_github_javascript_trends()
+        if js_trends:
+            for trend in js_trends:
+                trend["source"] = "🟨 JavaScript"
+            all_trends.extend(js_trends)
+        
+        # General trending (Node.js, etc.)
+        nodejs_trends = self.scrape_github_nodejs_trends()
+        if nodejs_trends:
+            for trend in nodejs_trends:
+                trend["source"] = "💚 Node.js"
+            all_trends.extend(nodejs_trends[:3])  # Limit to 3
+        
+        # Tech news from Dev.to
+        tech_news = self.scrape_tech_news()
+        if tech_news:
+            for trend in tech_news:
+                trend["source"] = "📰 Dev.to"
+            all_trends.extend(tech_news)
+        
+        # Hacker News as fallback
+        if not all_trends:
+            hn_trends = self.scrape_hacker_news()
+            if hn_trends:
+                for trend in hn_trends:
+                    trend["source"] = "📢 Hacker News"
+                all_trends.extend(hn_trends)
+        
+        if not all_trends:
+            self.console.print("[red]❌ Hiç trend konu bulunamadı. Lütfen daha sonra tekrar deneyin.[/red]")
             return
         
+        self.console.print(f"[green]✓ Toplam {len(all_trends)} trend konu bulundu![/green]\n")
+        
         # Step 2: Loop through trends until one is approved or all are skipped
-        for trend_index, selected_trend in enumerate(trends):
+        for trend_index, selected_trend in enumerate(all_trends):
             # Check if already posted or dismissed
             if self._is_already_posted(selected_trend["url"]):
                 continue
@@ -494,7 +673,8 @@ Stil rehberini ve yukarıdaki talimatları uygula."""
             self.current_trend = selected_trend
             
             # Display selected trend
-            self.console.print(f"\n[green]✓ Seçilen trend ({trend_index + 1}/{len(trends)}):[/green] [bold]{selected_trend['title']}[/bold]")
+            source = selected_trend.get("source", "📌 Unknown")
+            self.console.print(f"\n[green]✓ Seçilen trend ({trend_index + 1}/{len(all_trends)}):[/green] {source} [bold]{selected_trend['title']}[/bold]")
             self.console.print(f"[dim]{selected_trend['url']}[/dim]\n")
             
             # Step 3: Generate content

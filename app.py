@@ -191,16 +191,42 @@ def display_sidebar():
     # Trend fetching
     st.sidebar.subheader("1️⃣ Otomatik Trend Bulma")
     if st.sidebar.button("🔍 Trend Ara", key="fetch_trends", use_container_width=True):
-        with st.spinner("Trend'ler aranıyor..."):
-            trends = st.session_state.automator.scrape_github_trending()
-            if trends:
-                # Add source indicator
-                for trend in trends:
-                    trend["source"] = "📱 GitHub"
+        with st.spinner("Birden fazla kaynaktan trend'ler aranıyor..."):
+            all_trends = []
+            
+            # Python trends
+            python_trends = st.session_state.automator.scrape_github_trending()
+            if python_trends:
+                for trend in python_trends:
+                    trend["source"] = "🐍 Python"
+                all_trends.extend(python_trends)
+            
+            # JavaScript trends
+            js_trends = st.session_state.automator.scrape_github_javascript_trends()
+            if js_trends:
+                for trend in js_trends:
+                    trend["source"] = "🟨 JavaScript"
+                all_trends.extend(js_trends)
+            
+            # Node.js trends
+            nodejs_trends = st.session_state.automator.scrape_github_nodejs_trends()
+            if nodejs_trends:
+                for trend in nodejs_trends:
+                    trend["source"] = "💚 Node.js"
+                all_trends.extend(nodejs_trends[:3])
+            
+            # Tech news
+            tech_news = st.session_state.automator.scrape_tech_news()
+            if tech_news:
+                for trend in tech_news:
+                    trend["source"] = "📰 Dev.to"
+                all_trends.extend(tech_news)
+            
+            if all_trends:
                 # Merge with custom trends
-                st.session_state.trends = st.session_state.custom_trends + trends
+                st.session_state.trends = st.session_state.custom_trends + all_trends
                 st.session_state.current_trend_index = 0
-                st.success(f"✅ {len(trends)} trend bulundu!")
+                st.success(f"✅ Toplam {len(all_trends)} trend bulundu!")
             else:
                 st.error("❌ Trend bulunamadı")
     
@@ -214,11 +240,26 @@ def display_sidebar():
                 st.session_state.current_trend_index = idx
                 break
         
-        # Create trend labels with source indicators
+        # Group trends by source
+        trends_by_source = {}
+        for t in st.session_state.trends:
+            source = t.get("source", "Bilinmiyor")
+            if source not in trends_by_source:
+                trends_by_source[source] = []
+            trends_by_source[source].append(t)
+        
+        # Display source tabs
+        st.sidebar.markdown("**📊 Kaynaklar:**")
+        source_cols = st.sidebar.columns(len(trends_by_source))
+        for col, (source, trends) in zip(source_cols, trends_by_source.items()):
+            with col:
+                st.metric(source.split()[0], len(trends))
+        
+        # Create trend labels for selectbox
         trend_labels = []
         for t in st.session_state.trends:
             source = t.get("source", "")
-            title = t["title"][:35]
+            title = t["title"][:30]
             is_done = "✓" if st.session_state.automator._is_already_posted(t["url"]) else "○"
             label = f"{is_done} {source} {title}"
             trend_labels.append(label)
@@ -236,10 +277,12 @@ def display_sidebar():
         st.session_state.current_trend_index = selected_idx
         current_trend = st.session_state.trends[st.session_state.current_trend_index]
         
-        # Display selected trend details
+        # Display selected trend details with full info
         source = current_trend.get("source", "")
+        description = current_trend.get("description", "Açıklama yok")
         st.sidebar.info(
-            f"{source}\n**{current_trend['title']}**\n"
+            f"{source}\n**{current_trend['title']}**\n\n"
+            f"📝 {description}\n\n"
             f"[🔗 Link]({current_trend['url']})"
         )
         

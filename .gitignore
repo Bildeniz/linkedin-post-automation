@@ -1,3 +1,4 @@
 .env
 history.json
 linkedin_post.txt
+__pycache__
