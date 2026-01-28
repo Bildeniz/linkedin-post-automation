@@ -244,3 +244,138 @@ def scrape_tech_news() -> List[Dict[str, str]]:
     except Exception as e:
         console.print(f"[red]Dev.to scraping hatası: {e}[/red]")
         return []
+
+
+def scrape_github_all_languages_trending() -> List[Dict[str, str]]:
+    """
+    Scrape GitHub Trending page for all programming languages.
+    Returns top 5 trending items (language-agnostic).
+    """
+    console.print("[cyan]🔍 GitHub'da tüm dillerde trend konular aranıyor...[/cyan]")
+    
+    try:
+        url = "https://github.com/trending?since=daily"
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
+        
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+        
+        soup = BeautifulSoup(response.content, 'html.parser')
+        articles = soup.find_all('article', class_='Box-row')
+        
+        trends = []
+        for article in articles[:5]:
+            try:
+                h2 = article.find('h2', class_='h3')
+                if not h2:
+                    continue
+                
+                repo_link = h2.find('a')
+                if not repo_link:
+                    continue
+                
+                repo_name = repo_link.get('href', '').strip('/')
+                repo_url = f"https://github.com/{repo_name}"
+                
+                desc_tag = article.find('p', class_='col-9')
+                description = desc_tag.get_text(strip=True) if desc_tag else "No description available"
+                
+                # Extract language if available
+                lang_tag = article.find('span', attrs={'itemprop': 'programmingLanguage'})
+                language = lang_tag.get_text(strip=True) if lang_tag else "Unknown"
+                
+                trends.append({
+                    "title": repo_name,
+                    "description": description,
+                    "url": repo_url,
+                    "language": language,
+                    "source": "GitHub All Languages"
+                })
+            except Exception as e:
+                console.print(f"[yellow]Warning: Could not parse a trend item: {e}[/yellow]")
+                continue
+        
+        if trends:
+            console.print(f"[green]✓ {len(trends)} trend repository (tüm diller) bulundu[/green]")
+            return trends
+        else:
+            return []
+                
+    except Exception as e:
+        console.print(f"[red]GitHub all languages scraping hatası: {e}[/red]")
+        return []
+
+
+def scrape_hacker_news_news() -> List[Dict[str, str]]:
+    """
+    Scrape Hacker News 'newest' section for trending news.
+    Returns top 5 newest items.
+    """
+    console.print("[cyan]🔍 Hacker News news sektion taraması yapılıyor...[/cyan]")
+    
+    try:
+        # Scrape the news page directly (not API)
+        url = "https://news.ycombinator.com/newest"
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
+        
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+        
+        soup = BeautifulSoup(response.content, 'html.parser')
+        
+        # HN uses 'athing' class for stories
+        story_rows = soup.find_all('tr', class_='athing')
+        
+        trends = []
+        for story in story_rows[:5]:
+            try:
+                # Get title and link
+                title_cell = story.find('span', class_='titleline')
+                if not title_cell:
+                    continue
+                
+                link = title_cell.find('a')
+                if not link:
+                    continue
+                
+                title = link.get_text(strip=True)
+                story_url = link.get('href', '')
+                
+                # Handle relative URLs
+                if story_url.startswith('item?'):
+                    story_url = f"https://news.ycombinator.com/{story_url}"
+                elif not story_url.startswith('http'):
+                    continue
+                
+                # Get score and metadata from next row
+                meta_row = story.find_next('tr', class_='spacer')
+                score = "0"
+                if meta_row:
+                    score_span = meta_row.find('span', class_='score')
+                    if score_span:
+                        score = score_span.get_text(strip=True).split()[0]
+                
+                trends.append({
+                    "title": title,
+                    "description": title,  # HN doesn't have descriptions, use title
+                    "url": story_url,
+                    "score": score,
+                    "source": "HN News"
+                })
+            except Exception as e:
+                console.print(f"[yellow]Warning: Could not parse HN story: {e}[/yellow]")
+                continue
+        
+        if trends:
+            console.print(f"[green]✓ Hacker News news sektion'dan {len(trends)} haber bulundu[/green]")
+            return trends
+        else:
+            return []
+        
+    except Exception as e:
+        console.print(f"[red]Hacker News news scraping hatası: {e}[/red]")
+        return []

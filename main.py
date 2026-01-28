@@ -12,6 +12,7 @@ import os
 import random
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from openai import OpenAI
 from rich.console import Console
@@ -27,6 +28,8 @@ from core.scrapers import (
     scrape_github_nodejs_trends,
     scrape_hacker_news,
     scrape_tech_news,
+    scrape_github_all_languages_trending,
+    scrape_hacker_news_news,
 )
 
 # Check if pyperclip is available
@@ -197,7 +200,7 @@ Stil rehberini ve yukarıdaki talimatları uygula."""
                     {"role": "user", "content": user_prompt}
                 ],
                 temperature=0.8,
-                max_tokens=200
+                max_tokens=500
             )
 
             content = response.choices[0].message.content.strip()
@@ -339,38 +342,52 @@ Stil rehberini ve yukarıdaki talimatları uygula."""
             default=False
         )
 
-        # Step 1: Get trending topics from multiple sources
-        self.console.print("[bold cyan]📡 Birden fazla kaynaktan trend konuları alınıyor...[/bold cyan]\n")
+        # Step 1: Get trending topics from multiple sources (parallel)
+        self.console.print("[bold cyan]📡 Birden fazla kaynaktan trend konuları alınıyor (paralel)...[/bold cyan]\n")
+
+        # Define all scrapers with their metadata
+        scrapers = [
+            ("🐍 Python", scrape_github_trending, 5),
+            ("🟨 JavaScript", scrape_github_javascript_trends, 5),
+            ("💚 Node.js", scrape_github_nodejs_trends, 3),
+            ("🌍 GitHub All", scrape_github_all_languages_trending, 3),
+            ("📰 Dev.to", scrape_tech_news, 5),
+            ("📢 HN News", scrape_hacker_news_news, 5),
+        ]
 
         all_trends = []
+        completed_sources = []
 
-        # Python trends (main source)
-        python_trends = scrape_github_trending()
-        if python_trends:
-            for trend in python_trends:
-                trend["source"] = "🐍 Python"
-            all_trends.extend(python_trends)
+        # Execute scrapers in parallel
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            future_to_source = {
+                executor.submit(scraper): (name, scraper, limit)
+                for name, scraper, limit in scrapers
+            }
 
-        # JavaScript trends
-        js_trends = scrape_github_javascript_trends()
-        if js_trends:
-            for trend in js_trends:
-                trend["source"] = "🟨 JavaScript"
-            all_trends.extend(js_trends)
+            # Process completed tasks as they finish
+            for future in as_completed(future_to_source):
+                source_name, scraper_func, limit = future_to_source[future]
+                try:
+                    trends = future.result()
+                    count = len(trends[:limit]) if trends else 0
 
-        # General trending (Node.js, etc.)
-        nodejs_trends = scrape_github_nodejs_trends()
-        if nodejs_trends:
-            for trend in nodejs_trends:
-                trend["source"] = "💚 Node.js"
-            all_trends.extend(nodejs_trends[:3])  # Limit to 3
+                    if trends:
+                        for trend in trends[:limit]:
+                            trend["source"] = source_name
+                        all_trends.extend(trends[:limit])
 
-        # Tech news from Dev.to
-        tech_news = scrape_tech_news()
-        if tech_news:
-            for trend in tech_news:
-                trend["source"] = "📰 Dev.to"
-            all_trends.extend(tech_news)
+                    status = f"✅ {source_name}: {count} bulundu"
+                    completed_sources.append(status)
+                    self.console.print(status)
+
+                except Exception as e:
+                    status = f"❌ {source_name}: Hata"
+                    completed_sources.append(status)
+                    self.console.print(f"[yellow]{status} ({str(e)[:30]})[/yellow]")
+
+        # Summary
+        self.console.print(f"\n[bold cyan]✅ Tüm kaynaklar tarandı! Toplam {len(all_trends)} trend bulundu.[/bold cyan]\n")
 
         # Hacker News as fallback
         if not all_trends:

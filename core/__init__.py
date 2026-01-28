@@ -18,6 +18,8 @@ from .scrapers import (
     scrape_github_nodejs_trends,
     scrape_hacker_news,
     scrape_tech_news,
+    scrape_github_all_languages_trending,
+    scrape_hacker_news_news,
 )
 
 __all__ = [
@@ -35,4 +37,6 @@ __all__ = [
     "scrape_github_nodejs_trends",
     "scrape_hacker_news",
     "scrape_tech_news",
+    "scrape_github_all_languages_trending",
+    "scrape_hacker_news_news",
 ]

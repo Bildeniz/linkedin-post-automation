@@ -32,6 +32,7 @@ class HikayeStyle(PromptStyle):
 TAMAMEN TÜRKÇE yaz ve 3–4 cümleyi geçme.
 Konuyu senaryo oluşturarak basitleştirmeni istiyorum.
 Konuyu insani ve relatable bir şekilde bağlantılandır.
+MUTLAKA "Bu benim ne işime yarar?" sorusuna cevap ver - okuyucunun kişisel faydasını belirt.
 Emoji: en fazla 1–2, gerekirse hiç.
 Linki en sona tek başına bir satırda ekle.
 
@@ -49,6 +50,7 @@ class HaberciStyle(PromptStyle):
 TAMAMEN TÜRKÇE yaz ve 3–4 cümleyi geçme.
 Kişisel deneyim iddiası yok; 'denedim, test ettim' gibi ifadeler kullanma.
 Konunun nedir, neden önemli olduğunu açıkla.
+MUTLAKA "Bu benim ne işime yarar?" sorusunu dolaylı olarak yanıtla - profesyonellere pratik faydayı göster.
 Emoji: minimal (0–1).
 Linki en sona tek başına bir satırda ekle.
 
@@ -65,6 +67,7 @@ class MeraklandiricaStyle(PromptStyle):
         self.system = """Sen bir teknoloji evangelistsin. Konunun etkisini ve önemini vurgulayan, meraklandırıcı bir paylaşım yaz.
 TAMAMEN TÜRKÇE yaz ve 3–4 cümleyi geçme.
 Konunun neden önemli olduğunu, hangi problemi çözdüğünü vurgula.
+"Bu benim ne işime yarar?" sorusuna net cevap ver - okuyucunun hayatında/işinde ne değişeceğini göster.
 Bir soru sorabilirsin (örn. 'Hayal edin...' veya 'Ya eğer...').
 Emoji: 1–2, enerji ve heyecan katacak şekilde.
 Linki en sona tek başına bir satırda ekle.
@@ -82,6 +85,7 @@ class KisaOzStyle(PromptStyle):
         self.system = """Sen bir sosyal medya uzmanısın. Çok kısa ve öz, bir dakikada anlaşılır bir LinkedIn paylaşımı yaz.
 TAMAMEN TÜRKÇE yaz, maksimum 2–3 cümle (hiç emoji gerekli değilse).
 Asıl mesaj net, hızlı, vurgulu olsun.
+"Bu benim ne işime yarar?" sorusuna tek cümlede cevap ver - pratik faydayı vurgula.
 Gereksiz detay ekleme.
 Linki en sona tek başına bir satırda ekle.
 
@@ -99,6 +103,7 @@ class AkademikStyle(PromptStyle):
 TAMAMEN TÜRKÇE yaz ve 4 cümleyi aşma.
 Konunun teknik yönlerini ve bağlamını açıkla (ama jargon yığını olma).
 Neden ortaya çıktığını, gelecek için ne ifade ettiğini söyle.
+"Bu benim ne işime yarar?" sorusuna stratejik açıdan cevap ver - uzun vadeli etkisini göster.
 Emoji: minimal (0–1).
 Linki en sona tek başına bir satırda ekle.
 
@@ -116,6 +121,7 @@ class MaddelerStyle(PromptStyle):
 TAMAMEN TÜRKÇE yaz ve maksimum 3-4 madde.
 Her madde 1 satırda olsun; kısa ve vurgulu.
 Başlık: "Bu teknoloji nedir ve neden önemli?" şeklinde.
+Her madde "Bu benim ne işime yarar?" sorusuna farklı açıdan cevap vermeli - somut faydalar listele.
 Çıkmazda "🔗 Daha fazla bilgi:" ve linki ekle.
 Emoji: • ✅ (madde başında) ve başlıkta 1 tane.
 
@@ -136,10 +142,10 @@ Yapı:
 1. Açılış: Trend teknolojinin ismini ve ne olduğunu belirtir.
 
 2. "✅ Kullansak?" - Samimi bir tonda, kullandığımızda kazandığımız şeyler (2–3 unsur)
-   - Verimlilik, hız, maliyet tasarrufu, vb.
+   - "Bu benim ne işime yarar?" sorusuna direkt cevap: Verimlilik, hız, maliyet tasarrufu, vb.
 
 3. "❌ Kullanmadan önce?" - Samimi bir tonda kullanmadığımız takdirde gereksiz zorlandığımızı anlatan bir yazı (2–3 madde veya 1 paragraf)
-   - Rekabet gücünü kaybetme, dijital geride kalma, vb.
+   - Kullanmazsam ne kaybederim: Rekabet gücünü kaybetme, dijital geride kalma, vb.
 
 4. Kapanış: Net bir sonuç veya harekete geçme çağrısı.
 

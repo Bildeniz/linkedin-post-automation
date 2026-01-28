@@ -8,6 +8,8 @@ import streamlit as st
 import sys
 import os
 from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Dict, List
 
 # Add parent directory to path to import main module
 sys.path.insert(0, str(Path(__file__).parent))
@@ -19,6 +21,8 @@ from core.scrapers import (
     scrape_github_nodejs_trends,
     scrape_hacker_news,
     scrape_tech_news,
+    scrape_github_all_languages_trending,
+    scrape_hacker_news_news,
 )
 import json
 from datetime import datetime
@@ -203,47 +207,72 @@ def display_sidebar():
     )
     st.session_state.automator.long_form = long_form_choice
 
-    # Trend fetching
+    # Trend fetching with async/parallel support
     st.sidebar.subheader("1️⃣ Otomatik Trend Bulma")
     if st.sidebar.button("🔍 Trend Ara", key="fetch_trends", use_container_width=True):
-        with st.spinner("Birden fazla kaynaktan trend'ler aranıyor..."):
-            all_trends = []
+        # Define all scrapers with their metadata
+        scrapers = [
+            ("🐍 Python", scrape_github_trending, 5),
+            ("🟨 JavaScript", scrape_github_javascript_trends, 5),
+            ("💚 Node.js", scrape_github_nodejs_trends, 3),
+            ("🌍 GitHub All", scrape_github_all_languages_trending, 3),
+            ("📰 Dev.to", scrape_tech_news, 5),
+            ("📢 HN News", scrape_hacker_news_news, 5),
+        ]
+        
+        # Status placeholder for real-time updates
+        status_placeholder = st.empty()
+        results_placeholder = st.empty()
+        
+        with status_placeholder.container():
+            st.info("🔄 Kaynaklar paralel olarak taranıyor...")
+        
+        # Execute scrapers in parallel
+        all_trends = []
+        completed_sources = []
+        
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            # Submit all tasks
+            future_to_source = {
+                executor.submit(scraper): (name, scraper, limit)
+                for name, scraper, limit in scrapers
+            }
             
-            # Python trends
-            python_trends = scrape_github_trending()
-            if python_trends:
-                for trend in python_trends:
-                    trend["source"] = "🐍 Python"
-                all_trends.extend(python_trends)
+            # Process completed tasks as they finish
+            for future in as_completed(future_to_source):
+                source_name, scraper_func, limit = future_to_source[future]
+                try:
+                    trends = future.result()
+                    count = len(trends[:limit]) if trends else 0
+                    
+                    # Add source tag and limit results
+                    if trends:
+                        for trend in trends[:limit]:
+                            trend["source"] = source_name
+                        all_trends.extend(trends[:limit])
+                    
+                    completed_sources.append(f"✅ {source_name}: {count} bulundu")
+                    
+                    # Update status in real-time
+                    with status_placeholder.container():
+                        st.info(f"🔄 Taranıyor... ({len(completed_sources)}/6)\n\n" + 
+                               "\n".join(completed_sources))
+                    
+                except Exception as e:
+                    completed_sources.append(f"❌ {source_name}: Hata ({str(e)[:30]})")
+        
+        # Final results
+        if all_trends:
+            st.session_state.trends = st.session_state.custom_trends + all_trends
+            st.session_state.current_trend_index = 0
             
-            # JavaScript trends
-            js_trends = scrape_github_javascript_trends()
-            if js_trends:
-                for trend in js_trends:
-                    trend["source"] = "🟨 JavaScript"
-                all_trends.extend(js_trends)
-            
-            # Node.js trends
-            nodejs_trends = scrape_github_nodejs_trends()
-            if nodejs_trends:
-                for trend in nodejs_trends:
-                    trend["source"] = "💚 Node.js"
-                all_trends.extend(nodejs_trends[:3])
-            
-            # Tech news
-            tech_news = scrape_tech_news()
-            if tech_news:
-                for trend in tech_news:
-                    trend["source"] = "📰 Dev.to"
-                all_trends.extend(tech_news)
-            
-            if all_trends:
-                # Merge with custom trends
-                st.session_state.trends = st.session_state.custom_trends + all_trends
-                st.session_state.current_trend_index = 0
-                st.success(f"✅ Toplam {len(all_trends)} trend bulundu!")
-            else:
-                st.error("❌ Trend bulunamadı")
+            with status_placeholder.container():
+                st.success(f"✅ Tüm kaynaklar tarandı! Toplam {len(all_trends)} trend bulundu.\n\n" + 
+                          "\n".join(completed_sources))
+        else:
+            with status_placeholder.container():
+                st.error(f"❌ Trend bulunamadı.\n\n" + 
+                        "\n".join(completed_sources))
     
     # Trends list
     if st.session_state.trends:
